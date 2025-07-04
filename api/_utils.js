@@ -1,3 +1,14 @@
+const allowedHosts = JSON.parse(process.env.HOSTS || "[]");
+
+export function checkReferer(req) {
+  const referer = req.headers.referer || '';
+  if (!referer) throw new Error('Missing Referer');
+  const refererHost = new URL(referer).hostname;
+  if (!allowedHosts.includes(refererHost)) {
+    throw new Error('Forbidden Referer');
+  }
+}
+
 import axios from 'axios';
 
 const HEADERS = {
