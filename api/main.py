@@ -1,12 +1,13 @@
 # -*- coding:utf-8 -*-
 import uvicorn
 import json
-from fastapi import FastAPI,Response
+from fastapi import FastAPI,Response, Request
 from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 import os
 import psycopg2
 import math
+from urllib.parse import urlparse
 app = FastAPI(docs_url=None, redoc_url=None)
 
 allowedHosts = os.getenv("ALLOWED_HOSTS")
@@ -21,8 +22,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/api/rating/update", response_class=Response)
-def updateRating(response: Response,id: str = "",value: str = ""):
+@app.post("/api/rating/update", response_class=Response)
+def updateRating(request: Request, response: Response,id: str = "",value: str = ""):
+    if not checkReferer(request):
+        response.status_code = 403
+        return
     connection = None
     cursor = None
     
@@ -47,7 +51,7 @@ def updateRating(response: Response,id: str = "",value: str = ""):
         """
         cursor.execute(sql, (id,))
         connection.commit()
-        return json.dumps({"code": 200, "message": "Rating updated successfully"})
+        return json.dumps({"success": "true"})
 
 
     except psycopg2.Error as e:
@@ -64,8 +68,11 @@ def updateRating(response: Response,id: str = "",value: str = ""):
     
 
 
-@app.get("/api/vote/update", response_class=Response)
-def updateVote(response: Response, id: str = "", value: str = ""):
+@app.post("/api/vote/update", response_class=Response)
+def updateVote(request: Request, response: Response, id: str = "", value: str = ""):
+    if not checkReferer(request):
+        response.status_code = 403
+        return
     connection = None
     cursor = None
 
@@ -101,7 +108,10 @@ def updateVote(response: Response, id: str = "", value: str = ""):
 
 
 @app.get("/api/vote/info", response_class=Response)
-def getVoteInfo(response: Response, id: str = "default"):
+def getVoteInfo(request: Request, response: Response, id: str = "default"):
+    if not checkReferer(request):
+        response.status_code = 403
+        return
     connection = None
     cursor = None
     try:
@@ -141,7 +151,10 @@ def getVoteInfo(response: Response, id: str = "default"):
 
 
 @app.get("/api/rating/info", response_class=Response)
-def getRatingInfo(response: Response, id: str = "default"):
+def getRatingInfo(request: Request, response: Response, id: str = "default"):
+    if not checkReferer(request):
+        response.status_code = 403
+        return
     connection = None
     cursor = None
     try:
@@ -245,6 +258,16 @@ def init(pwd: str = ""):
         if connection:
             connection.close()
 
+def checkReferer(request):
+    referer = request.headers.get("referer")
+    # print(request.headers)
+    if not referer:
+        return False
+    hostname = urlparse(referer).hostname
+    # 检查主机名是否在允许的域名列表中
+    for allowed_host in allowedHosts:
+        if hostname.endswith(allowed_host):
+            return True
 
 
 if __name__ == "__main__":
